@@ -124,15 +124,15 @@ export default function VehicleCard({ vehicle, user, onRefresh }) {
                     disabled={changingStatus || vehicle.status === s}
                     onClick={() => changeStatus(s)}
                     style={{
-                      padding: '8px 12px', borderRadius: 8, fontWeight: 700, fontSize: 13,
+                      padding: '8px 12px', borderRadius: 8, fontWeight: 700, fontSize: 12,
                       background: vehicle.status === s ? STATUS_CONFIG[s].color : '#f0f0f0',
                       color: vehicle.status === s ? STATUS_CONFIG[s].textColor : '#555',
                       opacity: changingStatus ? 0.6 : 1,
                       transition: 'all 0.15s',
-                      minWidth: 36,
+                      whiteSpace: 'nowrap',
                     }}
                   >
-                    {s}
+                    {STATUS_CONFIG[s].short}
                   </button>
                 ))}
               </div>
