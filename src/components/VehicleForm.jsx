@@ -52,7 +52,10 @@ export default function VehicleForm({ user, vehicle, onClose, onSaved }) {
     setSaving(true);
     setError('');
 
-    const payload = { ...form };
+    const payload = {
+      ...form,
+      uebergabedatum: form.wunsch_uebergabedatum,
+    };
 
     if (isEdit) {
       const { error: upErr } = await supabase
