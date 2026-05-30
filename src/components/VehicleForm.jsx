@@ -47,8 +47,10 @@ export default function VehicleForm({ user, vehicle, onClose, onSaved }) {
   };
 
   const handleSave = async () => {
+    console.log('[VehicleForm] handleSave gestartet');
     const err = validate();
-    if (err) { setError(err); return; }
+    if (err) { console.log('[VehicleForm] Validierung fehlgeschlagen:', err); setError(err); return; }
+    console.log('[VehicleForm] Validierung OK');
     setSaving(true);
     setError('');
 
@@ -56,18 +58,27 @@ export default function VehicleForm({ user, vehicle, onClose, onSaved }) {
       ...form,
       uebergabedatum: form.wunsch_uebergabedatum,
     };
+    console.log('[VehicleForm] Payload:', JSON.stringify(payload, null, 2));
 
     if (isEdit) {
-      const { error: upErr } = await supabase.from('vehicles').update(payload).eq('id', vehicle.id);
+      console.log('[VehicleForm] UPDATE für id:', vehicle.id);
+      const { data, error: upErr } = await supabase
+        .from('vehicles')
+        .update(payload)
+        .eq('id', vehicle.id)
+        .select();
+      console.log('[VehicleForm] UPDATE Antwort — data:', data, 'error:', upErr);
       if (upErr) { setError(upErr.message); setSaving(false); return; }
     } else {
-      const { error: insErr } = await supabase.from('vehicles').insert({
-        ...payload,
-        status: 1,
-        created_by: user,
-      });
+      console.log('[VehicleForm] INSERT wird ausgeführt...');
+      const { data, error: insErr } = await supabase
+        .from('vehicles')
+        .insert({ ...payload, status: 1, created_by: user })
+        .select();
+      console.log('[VehicleForm] INSERT Antwort — data:', data, 'error:', insErr);
       if (insErr) { setError(insErr.message); setSaving(false); return; }
     }
+    console.log('[VehicleForm] Erfolg, rufe onSaved()');
     setSaving(false);
     onSaved();
   };
