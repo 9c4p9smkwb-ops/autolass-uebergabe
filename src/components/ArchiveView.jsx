@@ -16,8 +16,8 @@ export default function ArchiveView() {
     supabase
       .from('vehicles')
       .select('*')
-      .eq('is_archived', true)
-      .order('uebergeben_at', { ascending: false })
+      .eq('status', 8)
+      .order('auslieferungsdatum', { ascending: false })
       .then(({ data }) => { setVehicles(data || []); setLoading(false); });
   }, []);
 
@@ -77,7 +77,7 @@ export default function ArchiveView() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px 12px', marginTop: 10 }}>
             <Inf label="Verkäufer" val={v.verkaeufer} />
-            <Inf label="Übergeben" val={fmtDate(v.uebergeben_at)} />
+            <Inf label="Auslieferung" val={fmtDate(v.auslieferungsdatum)} />
             <Inf label="Angelegt" val={v.created_by} />
           </div>
         </div>

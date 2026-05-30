@@ -14,21 +14,10 @@ export default function Dashboard({ user }) {
 
   const fetchVehicles = useCallback(async () => {
     setLoading(true);
-
-    // Auto-archive: vehicles with status 8 and uebergeben_at older than 7 days
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    await supabase
-      .from('vehicles')
-      .update({ is_archived: true })
-      .eq('status', 8)
-      .eq('is_archived', false)
-      .lt('uebergeben_at', sevenDaysAgo.toISOString());
-
     const { data, error } = await supabase
       .from('vehicles')
       .select('*')
-      .eq('is_archived', false)
+      .neq('status', 8)
       .order('auslieferungsdatum', { ascending: true });
 
     if (!error) setVehicles(data || []);

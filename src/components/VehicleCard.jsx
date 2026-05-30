@@ -35,7 +35,6 @@ export default function VehicleCard({ vehicle, user, onRefresh }) {
     setChangingStatus(true);
     const oldStatus = vehicle.status;
     const updates = { status: newStatus };
-    if (newStatus === 8) updates.uebergeben_at = new Date().toISOString();
 
     await supabase.from('vehicles').update(updates).eq('id', vehicle.id);
     await supabase.from('status_history').insert({
