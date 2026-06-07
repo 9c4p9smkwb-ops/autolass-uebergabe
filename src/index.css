@@ -21,3 +21,12 @@ button { cursor: pointer; font-family: inherit; border: none; outline: none; }
 input, select, textarea { font-family: inherit; font-size: 16px; }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+
+@keyframes pulse-red {
+  0%   { box-shadow: 0 0 0 0 rgba(235,10,30,0.55); }
+  70%  { box-shadow: 0 0 0 10px rgba(235,10,30,0); }
+  100% { box-shadow: 0 0 0 0 rgba(235,10,30,0); }
+}
+.uebergabe-pulse {
+  animation: pulse-red 1.3s infinite;
+}

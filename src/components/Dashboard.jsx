@@ -53,10 +53,17 @@ export default function Dashboard({ user }) {
   });
 
   const urgentCount = vehicles.filter(v => {
-    if (v.status >= 6) return false;
     const today = new Date(); today.setHours(0,0,0,0);
-    const due = new Date(v.auslieferungsdatum);
-    return (due - today) / 86400000 <= 2;
+    const diff = (dateStr) => {
+      if (!dateStr) return null;
+      const d = new Date(dateStr); d.setHours(0,0,0,0);
+      return Math.round((d - today) / 86400000);
+    };
+    const ws = diff(v.werkstatttermin);
+    const aus = diff(v.auslieferungsdatum);
+    const werkstattWarn = ws !== null && ws < 0 && v.status < 4;
+    const auslieferWarn = aus !== null && aus <= 1 && v.status < 7;
+    return werkstattWarn || auslieferWarn;
   }).length;
 
   return (

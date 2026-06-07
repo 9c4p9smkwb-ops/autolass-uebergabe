@@ -16,13 +16,39 @@ function fmtDateTime(ts) {
   return new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function isUrgent(vehicle) {
-  if (vehicle.status >= 6) return false;
+// Ganzzahlige Tagesdifferenz bis Datum (negativ = Vergangenheit, 0 = heute, 1 = morgen)
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const due = new Date(vehicle.auslieferungsdatum);
-  const diff = (due - today) / (1000 * 60 * 60 * 24);
-  return diff <= 2;
+  const due = new Date(dateStr);
+  due.setHours(0, 0, 0, 0);
+  return Math.round((due - today) / 86400000);
+}
+
+// Liefert aktive Warnungen für eine Fahrzeugkarte
+function getWarnings(vehicle) {
+  const warnings = [];
+
+  // 1) Werkstatttermin überfällig und Status noch nicht in Arbeit (< 4)
+  const wsDiff = daysUntil(vehicle.werkstatttermin);
+  if (wsDiff !== null && wsDiff < 0 && vehicle.status < 4) {
+    warnings.push('Handlungsbedarf - Werkstatt nicht bestätigt');
+  }
+
+  // 2) Auslieferung morgen oder überfällig und Status noch nicht übergabebereit (< 7)
+  const ausDiff = daysUntil(vehicle.auslieferungsdatum);
+  if (ausDiff !== null && ausDiff <= 1 && vehicle.status < 7) {
+    warnings.push('Handlungsbedarf - Fahrzeug nicht übergabebereit');
+  }
+
+  return warnings;
+}
+
+// Auslieferung überschritten und noch nicht übergeben (< 8) → Übergabe-Button warnen
+function isUebergabeOverdue(vehicle) {
+  const ausDiff = daysUntil(vehicle.auslieferungsdatum);
+  return ausDiff !== null && ausDiff < 0 && vehicle.status < 8;
 }
 
 export default function VehicleCard({ vehicle, user, onRefresh }) {
@@ -34,7 +60,9 @@ export default function VehicleCard({ vehicle, user, onRefresh }) {
   const [history, setHistory] = useState([]);
 
   const cfg = STATUS_CONFIG[vehicle.status];
-  const urgent = isUrgent(vehicle);
+  const warnings = getWarnings(vehicle);
+  const urgent = warnings.length > 0;
+  const uebergabeOverdue = isUebergabeOverdue(vehicle);
 
   // Statushistorie laden, sobald Karte aufgeklappt (und nach Statuswechsel neu)
   useEffect(() => {
@@ -74,11 +102,11 @@ export default function VehicleCard({ vehicle, user, onRefresh }) {
         overflow: 'hidden',
         transition: 'box-shadow 0.2s',
       }}>
-        {urgent && (
-          <div style={{ background: '#EB0A1E', color: '#fff', padding: '6px 16px', fontSize: 13, fontWeight: 700 }}>
-            ⚠️ Auslieferung in ≤ 2 Tagen — Status noch nicht ≥ 6!
+        {warnings.map((msg, i) => (
+          <div key={i} style={{ background: '#EB0A1E', color: '#fff', padding: '6px 16px', fontSize: 13, fontWeight: 700 }}>
+            ⚠️ {msg}
           </div>
-        )}
+        ))}
 
         {/* Card header */}
         <button
@@ -134,23 +162,28 @@ export default function VehicleCard({ vehicle, user, onRefresh }) {
             <div style={{ marginBottom: 14 }}>
               <p style={{ fontSize: 12, fontWeight: 600, color: '#888', marginBottom: 8 }}>STATUS ÄNDERN</p>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {[1,2,3,4,5,6,7,8].map(s => (
-                  <button
-                    key={s}
-                    disabled={changingStatus || vehicle.status === s}
-                    onClick={() => changeStatus(s)}
-                    style={{
-                      padding: '8px 12px', borderRadius: 8, fontWeight: 700, fontSize: 12,
-                      background: vehicle.status === s ? STATUS_CONFIG[s].color : '#f0f0f0',
-                      color: vehicle.status === s ? STATUS_CONFIG[s].textColor : '#555',
-                      opacity: changingStatus ? 0.6 : 1,
-                      transition: 'all 0.15s',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {STATUS_CONFIG[s].short}
-                  </button>
-                ))}
+                {[1,2,3,4,5,6,7,8].map(s => {
+                  const isActive = vehicle.status === s;
+                  const warnUebergabe = s === 8 && uebergabeOverdue && !isActive;
+                  return (
+                    <button
+                      key={s}
+                      className={warnUebergabe ? 'uebergabe-pulse' : undefined}
+                      disabled={changingStatus || isActive}
+                      onClick={() => changeStatus(s)}
+                      style={{
+                        padding: '8px 12px', borderRadius: 8, fontWeight: 700, fontSize: 12,
+                        background: warnUebergabe ? '#EB0A1E' : (isActive ? STATUS_CONFIG[s].color : '#f0f0f0'),
+                        color: warnUebergabe ? '#fff' : (isActive ? STATUS_CONFIG[s].textColor : '#555'),
+                        opacity: changingStatus ? 0.6 : 1,
+                        transition: 'all 0.15s',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {warnUebergabe ? `⚠️ ${STATUS_CONFIG[s].short}` : STATUS_CONFIG[s].short}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
