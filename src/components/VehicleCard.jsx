@@ -146,6 +146,20 @@ export default function VehicleCard({ vehicle, user, onRefresh }) {
         <div style={{ padding: '0 16px 12px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <StatusBadge status={vehicle.status} />
           <span style={{ fontSize: 12, color: '#999' }}>Auslieferung: {fmtDate(vehicle.auslieferungsdatum)}</span>
+          {uebergabeOverdue && (
+            <button
+              className="uebergabe-pulse"
+              disabled={changingStatus}
+              onClick={() => changeStatus(8)}
+              style={{
+                marginLeft: 'auto', padding: '8px 14px', borderRadius: 10,
+                background: '#EB0A1E', color: '#fff', fontWeight: 700, fontSize: 13,
+                opacity: changingStatus ? 0.6 : 1, whiteSpace: 'nowrap',
+              }}
+            >
+              ⚠️ Übergeben
+            </button>
+          )}
         </div>
 
         {expanded && (
