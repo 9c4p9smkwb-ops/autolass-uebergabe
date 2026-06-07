@@ -5,6 +5,17 @@ export const USERS = [
 
 export const VERKAEUFER = ['Matthias', 'Artjom', 'Halit', 'Ralf'];
 
+export const SERVICE = ['Anika', 'Lasse', 'Boris'];
+
+export const isService = (user) => SERVICE.includes(user);
+
+export const TOYOTA_MODELS = [
+  'Aygo', 'Yaris', 'Yaris Cross', 'C-HR', 'C-HR+', 'C-HR Plug-in',
+  'Corolla', 'Corolla Touring Sports', 'Corolla Cross', 'RAV4', 'RAV4 Plug-in',
+  'bZ4X', 'bZ4X Touring', 'Urban Cruiser', 'Proace City', 'Proace City Verso',
+  'Proace', 'Proace Verso', 'Proace Verso City', 'Proace Max', 'Land Cruiser', 'Hilux',
+];
+
 export const STATUS_CONFIG = {
   1: { label: 'Verkaufsmeldung eingegangen', short: 'Verkaufsm.', color: '#9E9E9E', textColor: '#fff' },
   2: { label: 'Auftrag erstellt', short: 'Auftrag', color: '#2196F3', textColor: '#fff' },

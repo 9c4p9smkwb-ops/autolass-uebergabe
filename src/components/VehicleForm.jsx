@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { VERKAEUFER } from '../constants';
+import { VERKAEUFER, TOYOTA_MODELS, isService } from '../constants';
 
 const emptyForm = {
   fahrgestellnummer: '',
@@ -10,13 +10,13 @@ const emptyForm = {
   verkaeufer: '',
   kunde: '',
   werkstatttermin: '',
-  wunsch_uebergabedatum: '',
   auslieferungsdatum: '',
   bemerkung: '',
 };
 
 export default function VehicleForm({ user, vehicle, onClose, onSaved }) {
   const isEdit = !!vehicle;
+  const service = isService(user);
   const [form, setForm] = useState(isEdit ? {
     fahrgestellnummer: vehicle.fahrgestellnummer || '',
     kennzeichen: vehicle.kennzeichen || '',
@@ -25,14 +25,22 @@ export default function VehicleForm({ user, vehicle, onClose, onSaved }) {
     verkaeufer: vehicle.verkaeufer || '',
     kunde: vehicle.kunde || '',
     werkstatttermin: vehicle.werkstatttermin || '',
-    wunsch_uebergabedatum: vehicle.wunsch_uebergabedatum || '',
     auslieferungsdatum: vehicle.auslieferungsdatum || '',
     bemerkung: vehicle.bemerkung || '',
   } : { ...emptyForm });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [gwSuggestions, setGwSuggestions] = useState([]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // GW-Modell-Autocomplete: bereits eingetragene Modelle + Toyota-Liste
+  useEffect(() => {
+    supabase.from('vehicles').select('modell').then(({ data }) => {
+      const existing = (data || []).map(r => r.modell).filter(Boolean);
+      setGwSuggestions([...new Set([...TOYOTA_MODELS, ...existing])]);
+    });
+  }, []);
 
   const validate = () => {
     if (form.fahrgestellnummer.length !== 6 || !/^\d+$/.test(form.fahrgestellnummer))
@@ -40,8 +48,6 @@ export default function VehicleForm({ user, vehicle, onClose, onSaved }) {
     if (!form.modell.trim()) return 'Modell ist Pflicht.';
     if (!form.verkaeufer) return 'Verkäufer auswählen.';
     if (!form.kunde.trim()) return 'Kunde ist Pflicht.';
-    if (!form.werkstatttermin) return 'Werkstatttermin ist Pflicht.';
-    if (!form.wunsch_uebergabedatum) return 'Wunsch-Übergabedatum ist Pflicht.';
     if (!form.auslieferungsdatum) return 'Auslieferungsdatum ist Pflicht.';
     return null;
   };
@@ -52,10 +58,10 @@ export default function VehicleForm({ user, vehicle, onClose, onSaved }) {
     setSaving(true);
     setError('');
 
-    const payload = {
-      ...form,
-      uebergabedatum: form.wunsch_uebergabedatum,
-    };
+    // Verkäufer dürfen Werkstatttermin nicht ändern → bestehenden Wert behalten
+    const payload = { ...form };
+    if (!service && isEdit) payload.werkstatttermin = vehicle.werkstatttermin;
+    if (!payload.werkstatttermin) payload.werkstatttermin = null;
 
     if (isEdit) {
       const { error: upErr } = await supabase
@@ -72,6 +78,8 @@ export default function VehicleForm({ user, vehicle, onClose, onSaved }) {
     setSaving(false);
     onSaved();
   };
+
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
 
   return (
     <div style={{
@@ -108,10 +116,6 @@ export default function VehicleForm({ user, vehicle, onClose, onSaved }) {
           <input type="text" value={form.kennzeichen} onChange={e => set('kennzeichen', e.target.value.toUpperCase())} placeholder="HH-AB 1234" style={inputStyle} />
         </Field>
 
-        <Field label="Modell *">
-          <input type="text" value={form.modell} onChange={e => set('modell', e.target.value)} placeholder="z.B. Toyota Yaris" style={inputStyle} />
-        </Field>
-
         <Field label="Fahrzeugtyp *">
           <div style={{ display: 'flex', gap: 10 }}>
             {['NW', 'GW'].map(t => (
@@ -131,6 +135,30 @@ export default function VehicleForm({ user, vehicle, onClose, onSaved }) {
           </div>
         </Field>
 
+        {/* Modell: NW = Dropdown, GW = Freitext mit Autocomplete */}
+        <Field label="Modell *">
+          {form.fahrzeugtyp === 'NW' ? (
+            <select value={form.modell} onChange={e => set('modell', e.target.value)} style={inputStyle}>
+              <option value="">Auswählen …</option>
+              {TOYOTA_MODELS.map(m => <option key={m}>{m}</option>)}
+            </select>
+          ) : (
+            <>
+              <input
+                type="text"
+                list="modell-suggestions"
+                value={form.modell}
+                onChange={e => set('modell', e.target.value)}
+                placeholder="z.B. VW Golf"
+                style={inputStyle}
+              />
+              <datalist id="modell-suggestions">
+                {gwSuggestions.map(m => <option key={m} value={m} />)}
+              </datalist>
+            </>
+          )}
+        </Field>
+
         <Field label="Verkäufer *">
           <select value={form.verkaeufer} onChange={e => set('verkaeufer', e.target.value)} style={inputStyle}>
             <option value="">Auswählen …</option>
@@ -142,12 +170,16 @@ export default function VehicleForm({ user, vehicle, onClose, onSaved }) {
           <input type="text" value={form.kunde} onChange={e => set('kunde', e.target.value)} placeholder="Name des Kunden" style={inputStyle} />
         </Field>
 
-        <Field label="Werkstatttermin *">
-          <input type="date" value={form.werkstatttermin} onChange={e => set('werkstatttermin', e.target.value)} style={inputStyle} />
-        </Field>
-
-        <Field label="Wunsch-Übergabedatum *">
-          <input type="date" value={form.wunsch_uebergabedatum} onChange={e => set('wunsch_uebergabedatum', e.target.value)} style={inputStyle} />
+        {/* Werkstatttermin: nur Service darf bearbeiten, Verkäufer sehen Text */}
+        <Field label="Werkstatttermin">
+          {service ? (
+            <input type="date" value={form.werkstatttermin} onChange={e => set('werkstatttermin', e.target.value)} style={inputStyle} />
+          ) : (
+            <div style={{ ...inputStyle, background: '#f5f5f5', color: '#555' }}>
+              {fmtDate(form.werkstatttermin)}
+              <span style={{ fontSize: 12, color: '#999', marginLeft: 8 }}>(nur Service)</span>
+            </div>
+          )}
         </Field>
 
         <Field label="Auslieferungsdatum *">

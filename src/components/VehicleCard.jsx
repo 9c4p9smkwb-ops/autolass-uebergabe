@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { STATUS_CONFIG } from '../constants';
 import StatusBadge from './StatusBadge';
@@ -9,6 +9,11 @@ import VehicleForm from './VehicleForm';
 function fmtDate(d) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function fmtDateTime(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function isUrgent(vehicle) {
@@ -26,9 +31,21 @@ export default function VehicleCard({ vehicle, user, onRefresh }) {
   const [showHistory, setShowHistory] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
+  const [history, setHistory] = useState([]);
 
   const cfg = STATUS_CONFIG[vehicle.status];
   const urgent = isUrgent(vehicle);
+
+  // Statushistorie laden, sobald Karte aufgeklappt (und nach Statuswechsel neu)
+  useEffect(() => {
+    if (!expanded) return;
+    supabase
+      .from('status_history')
+      .select('*')
+      .eq('vehicle_id', vehicle.id)
+      .order('changed_at', { ascending: false })
+      .then(({ data }) => setHistory(data || []));
+  }, [expanded, vehicle.id, vehicle.status]);
 
   const changeStatus = async (newStatus) => {
     if (newStatus < 1 || newStatus > 8) return;
@@ -109,7 +126,6 @@ export default function VehicleCard({ vehicle, user, onRefresh }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', marginBottom: 14 }}>
               <Info label="Verkäufer" value={vehicle.verkaeufer} />
               <Info label="Werkstatt" value={fmtDate(vehicle.werkstatttermin)} />
-              <Info label="Wunschtermin" value={fmtDate(vehicle.wunsch_uebergabedatum)} />
               <Info label="Angelegt von" value={vehicle.created_by} />
               {vehicle.bemerkung && <Info label="Bemerkung" value={vehicle.bemerkung} full />}
             </div>
@@ -136,6 +152,24 @@ export default function VehicleCard({ vehicle, user, onRefresh }) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Statushistorie inline */}
+            <div style={{ marginBottom: 14 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: '#888', marginBottom: 8 }}>STATUSHISTORIE</p>
+              {history.length === 0 ? (
+                <p style={{ fontSize: 13, color: '#999' }}>Noch keine Statuswechsel.</p>
+              ) : (
+                history.map(h => (
+                  <div key={h.id} style={{ borderLeft: `3px solid ${STATUS_CONFIG[h.new_status]?.color || '#ccc'}`, paddingLeft: 10, marginBottom: 8 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: '#282830' }}>
+                      {h.old_status ? `${STATUS_CONFIG[h.old_status]?.short || h.old_status} → ` : ''}
+                      {STATUS_CONFIG[h.new_status]?.short || h.new_status}
+                    </p>
+                    <p style={{ fontSize: 12, color: '#666' }}>{h.changed_by} · {fmtDateTime(h.changed_at)}</p>
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Action buttons */}
